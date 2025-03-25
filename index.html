@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuoLive</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DuoLive</h1>
+            <div class="controls">
+                <button id="import-calendar">导入日程</button>
+                <span id="current-time"></span>
+            </div>
+        </header>
+        
+        <div class="game-container">
+            <!-- 等距视图的游戏世界 -->
+            <div class="isometric-world">
+                <div class="house">
+                    <!-- 房间将通过 JavaScript 动态生成 -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="notification-panel">
+            <h3>通知</h3>
+            <div id="notifications-list"></div>
+        </div>
+        
+        <input type="file" id="ics-upload" accept=".ics" style="display: none;">
+    </div>
+
+    <div id="character-menu" class="context-menu">
+        <ul>
+            <li data-action="status">查看状态</li>
+            <li data-action="remind">发送提醒</li>
+            <li data-action="poke">戳一戳</li>
+            <li data-action="chat">聊天</li>
+        </ul>
+    </div>
+
+    <script src="ics-parser.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
