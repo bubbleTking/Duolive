@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuoLive</title>
+    <style>
+        :root {
+            --floor-color: #f0e4d3;
+            --wall-color: #c8bead;
+            --accent-color: #7fb069;
+            --text-color: #4a4a4a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e8f4e5;
+            color: var(--text-color);
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #6a9e57;
+        }
+
+        .game-container {
+            height: 400px;
+            background-color: #c4e3c2;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .house {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            height: 100%;
+        }
+
+        .room {
+            background-color: var(--floor-color);
+            border: 2px solid var(--wall-color);
+            position: relative;
+        }
+
+        .character {
+            width: 40px;
+            height: 40px;
+            position: absolute;
+            bottom: 20px;
+            left: calc(50% - 20px);
+            cursor: pointer;
+        }
+
+        .character-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+        }
+
+        .character[data-id="AB"] .character-inner { background-color: #FF6B6B; }
+        .character[data-id="IR"] .character-inner { background-color: #4ECDC4; }
+        .character[data-id="RP"] .character-inner { background-color: #FFD166; }
+        .character[data-id="GR"] .character-inner { background-color: #70C1B3; }
+        .character[data-id="CG"] .character-inner { background-color: #B8336A; }
+
+        .speech-bubble {
+            position: absolute;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        .speech-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            margin-left: -10px;
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: white transparent;
+        }
+
+        .speech-bubble.active {
+            opacity: 1;
+        }
+
+        .notification-panel {
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #notifications-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .notification-item {
+            padding: 10px;
+            background-color: #f8f8f8;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+        }
+
+        .context-menu {
+            display: none;
+            position: absolute;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .context-menu ul {
+            list-style: none;
+        }
+
+        .context-menu li {
+            padding: 10px 15px;
+            cursor: pointer;
+        }
+
+        .context-menu li:hover {
+            background-color: #f0f0f0;
+        }
+
+        .sleeping .character-inner:after {
+            content: "💤";
+            position: absolute;
+            top: -15px;
+            right: -10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DuoLive</h1>
+            <div class="controls">
+                <button id="language-btn">English</button>
+                <button id="import-btn">导入日程</button>
+                <button id="demo-btn">加载示例</button>
+                <span id="time-display"></span>
+            </div>
+        </header>
+        
+        <div class="game-container">
+            <div class="house" id="house">
+                <!-- 房间将由JavaScript生成 -->
+            </div>
+        </div>
+        
+        <div class="notification-panel">
+            <h3 id="notifications-title">通知</h3>
+            <div id="notifications-list"></div>
+        </div>
+        
+        <input type="file" id="file-upload" accept=".ics" style="display: none;">
+    </div>
+
+    <div id="character-menu" class="context-menu">
+        <ul>
+            <li data-action="status" id="menu-status">查看状态</li>
+            <li data-action="remind" id="menu-remind">发送提醒</li>
+            <li data-action="poke" id="menu-poke">戳一戳</li>
+            <li data-action="chat" id="menu-chat">聊天</li>
+        </ul>
+    </div>
+
+    <script>
+        // 翻译数据
+        const translations = {
+            'zh-CN': {
+                'import': '导入日程',
+                'demo': '加载示例',
+                'notifications': '通知',
+                'status': '查看状态',
+                'remind': '发送提醒',
+                'poke': '戳一戳',
+                'chat': '聊天',
+                'import_success': '成功导入 {0} 个日程事件',
+                'import_fail': '导入失败，请检查文件格式',
+                'reminded': '你提醒了 {0} 关于他们的日程',
+                'dont_poke': '嘿！别戳我！',
+                'status_msg': '我的状态是：{0}',
+                'will_remember': '谢谢提醒，我会记得我的日程！',
+                'event_notice': '{0} 的事件：{1}，将在 {2} 开始',
+                'my_event': '我的事件 "{0}" 即将开始！',
+                'notifications_on': '通知权限已启用',
+                'demo_loaded': '示例日程已加载',
+                'idle': '空闲',
+                'sleeping': '睡觉中',
+                'working': '工作中',
+                'meeting': '开会中'
+            },
+            'en-US': {
+                'import': 'Import Calendar',
+                'demo': 'Load Demo',
+                'notifications': 'Notifications',
+                'status': 'Check Status',
+                'remind': 'Send Reminder',
+                'poke': 'Poke',
+                'chat': 'Chat',
+                'import_success': 'Successfully imported {0} events',
+                'import_fail': 'Import failed, check file format',
+                'reminded': 'You reminded {0} about their schedule',
+                'dont_poke': "Hey! Don't poke me!",
+                'status_msg': 'My status is: {0}',
+                'will_remember': "Thanks for the reminder!",
+                'event_notice': "{0}'s event: {1}, starts at {2}",
+                'my_event': 'My event "{0}" is about to start!',
+                'notifications_on': 'Notifications enabled',
+                'demo_loaded': 'Demo schedule loaded',
+                'idle': 'idle',
+                'sleeping': 'sleeping',
+                'working': 'working',
+                'meeting': 'in a meeting'
+            }
+        };
+
+        // AI回复
+        const aiResponses = {
+            'zh-CN': [
+                "你好！有什么可以帮你的吗？",
+                "我正在思考人生的意义...",
+                "今天天气不错，对吧？",
+                "你知道吗？我最喜欢的颜色是蓝色！"
+            ],
+            'en-US': [
+                "Hello! How can I help you?",
+                "I'm thinking about the meaning of life...",
+                "Nice weather today, isn't it?",
+                "Did you know? My favorite color is blue!"
+            ]
+        };
+
+        // 格式化字符串
+        function format(str, ...args) {
+            return str.replace(/{(\d+)}/g, function(match, number) {
+                return typeof args[number] != 'undefined' ? args[number] : match;
+            });
+        }
+
+        // DuoLive应用
+        class DuoLive {
+            constructor() {
+                this.characters = {
+                    'AB': { status: 'idle', room: 0 },
+                    'RP': { status: 'idle', room: 1 },
+                    'IR': { status: 'idle', room: 2 },
+                    'GR': { status: 'idle', room: 3 },
+                    'CG': { status: 'idle', room: 4 }
+                };
+                this.events = [];
+                this.selectedCharacter = null;
+                this.language = 'zh-CN';
+
+                this.createRooms();
+                this.createCharacters();
+                this.setupClock();
+                this.setupEvents();
+                this.requestNotifications();
+            }
+
+            // 创建房间
+            createRooms() {
+                const house = document.getElementById('house');
+                for (let i = 0; i < 5; i++) {
+                    const room = document.createElement('div');
+                    room.className = 'room';
+                    room.dataset.roomId = i;
+                    house.appendChild(room);
+                }
+            }
+
+            // 创建角色
+            createCharacters() {
+                for (const [id, data] of Object.entries(this.characters)) {
+                    const room = document.querySelector(`.room[data-room-id="${data.room}"]`);
+                    
+                    const character = document.createElement('div');
+                    character.className = 'character';
+                    character.dataset.id = id;
+                    
+                    const inner = document.createElement('div');
+                    inner.className = 'character-inner';
+                    inner.textContent = id;
+                    character.appendChild(inner);
+                    
+                    const bubble = document.createElement('div');
+                    bubble.className = 'speech-bubble';
+                    character.appendChild(bubble);
+                    
+                    room.appendChild(character);
+                    
+                    character.addEventListener('click', (e) => {
+                        this.openCharacterMenu(e, id);
+                    });
+                }
+            }
+
+            // 时钟和状态更新
+            setupClock() {
+                const timeDisplay = document.getElementById('time-display');
+                
+                const updateTime = () => {
+                    const now = new Date();
+                    timeDisplay.textContent = now.toLocaleTimeString();
+                    this.updateStates(now);
+                    this.checkEvents(now);
+                };
+                
+                updateTime();
+                setInterval(updateTime, 1000);
+            }
+
+            // 更新角色状态
+            updateStates(now) {
+                const hour = now.getHours();
+                
+                for (const [id, data] of Object.entries(this.characters)) {
+                    const character = document.querySelector(`.character[data-id="${id}"]`);
+                    if (hour >= 22 || hour < 6) {
+                        character.classList.add('sleeping');
+                        this.characters[id].status = 'sleeping';
+                    } else {
+                        character.classList.remove('sleeping');
+                        if (this.characters[id].status === 'sleeping') {
+                            this.characters[id].status = 'idle';
+                        }
+                    }
+                }
+            }
+
+            // 设置事件监听器
+            setupEvents() {
+                // 语言切换
+                document.getElementById('language-btn').addEventListener('click', () => {
+                    this.toggleLanguage();
+                });
+                
+                // 导入按钮
+                document.getElementById('import-btn').addEventListener('click', () => {
+                    document.getElementById('file-upload').click();
+                });
+                
+                // 文件上传
+                document.getElementById('file-upload').addEventListener('change', (e) => {
+                    if (e.target.files.length > 0) {
+                        this.handleFileUpload(e.target.files[0]);
+                    }
+                });
+                
+                // 示例按钮
+                document.getElementById('demo-btn').addEventListener('click', () => {
+                    this.loadDemoEvents();
+                });
+                
+                // 点击菜单项
+                document.querySelectorAll('#character-menu li').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        const action = e.target.dataset.action;
+                        if (this.selectedCharacter) {
+                            this.handleAction(action, this.selectedCharacter);
+                        }
+                        this.closeMenu();
+                    });
+                });
+                
+                // 点击其他区域关闭菜单
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.character') && !e.target.closest('#character-menu')) {
+                        this.closeMenu();
+                    }
+                });
+            }
+
+            // 切换语言
+            toggleLanguage() {
+                this.language = this.language === 'zh-CN' ? 'en-US' : 'zh-CN';
+                document.getElementById('language-btn').textContent = this.language === 'zh-CN' ? 'English' : '中文';
+                this.updateTexts();
+            }
+
+            // 更新所有文本
+            updateTexts() {
+                document.getElementById('import-btn').textContent = translations[this.language]['import'];
+                document.getElementById('demo-btn').textContent = translations[this.language]['demo'];
+                document.getElementById('notifications-title').textContent = translations[this.language]['notifications'];
+                document.getElementById('menu-status').textContent = translations[this.language]['status'];
+                document.getElementById('menu-remind').textContent = translations[this.language]['remind'];
+                document.getElementById('menu-poke').textContent = translations[this.language]['poke'];
+                document.getElementById('menu-chat').textContent = translations[this.language]['chat'];
+            }
+
+            // 打开角色菜单
+            openCharacterMenu(event, characterId) {
+                event.stopPropagation();
+                this.selectedCharacter = characterId;
+                
+                const menu = document.getElementById('character-menu');
+                menu.style.display = 'block';
+                menu.style.left = `${event.pageX}px`;
+                menu.style.top = `${event.pageY}px`;
+            }
+
+            // 关闭菜单
+            closeMenu() {
+                document.getElementById('character-menu').style.display = 'none';
+                this.selectedCharacter = null;
+            }
+
+            // 处理菜单动作
+            handleAction(action, characterId) {
+                switch (action) {
+                    case 'status':
+                        this.showStatus(characterId);
+                        break;
+                    case 'remind':
+                        this.sendReminder(characterId);
+                        break;
+                    case 'poke':
+                        this.pokeCharacter(characterId);
+                        break;
+                    case 'chat':
+                        this.chatWithAI(characterId);
+                        break;
+                }
+            }
+
+            // 显示角色状态
+            showStatus(characterId) {
+                const status = this.characters[characterId].status;
+                const statusText = translations[this.language][status];
+                const message = format(translations[this.language]['status_msg'], statusText);
+                this.showBubble(characterId, message);
+            }
+
+            // 发送提醒
+            sendReminder(characterId) {
+                this.showBubble(characterId, translations[this.language]['will_remember']);
+                this.addNotification(format(translations[this.language]['reminded'], characterId));
+            }
+
+            // 戳角色
+            pokeCharacter(characterId) {
+                const character = document.querySelector(`.character[data-id="${characterId}"]`);
+                
+                character.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    character.style.transform = 'translateY(0)';
+                }, 200);
+                
+                this.showBubble(characterId, translations[this.language]['dont_poke']);
+            }
+
+            // AI聊天
+            chatWithAI(characterId) {
+                const responses = aiResponses[this.language];
+                const message = responses[Math.floor(Math.random() * responses.length)];
+                this.showBubble(characterId, message);
+            }
+
+            // 显示对话气泡
+            showBubble(characterId, text) {
+                const character = document.querySelector(`.character[data-id="${characterId}"]`);
+                const bubble = character.querySelector('.speech-bubble');
+                
+                bubble.textContent = text;
+                bubble.classList.add('active');
+                
+                setTimeout(() => {
+                    bubble.classList.remove('active');
+                }, 5000);
+            }
+
+            // 处理文件上传
+            handleFileUpload(file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const events = this.parseICS(e.target.result);
+                        this.events = this.events.concat(events);
+                        this.addNotification(format(translations[this.language]['import_success'], events.length));
+                    } catch (error) {
+                        this.addNotification(translations[this.language]['import_fail'], true);
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            // 简单ICS解析
+            parseICS(icsData) {
+                const events = [];
+                const lines = icsData.split('\n');
+                let currentEvent = null;
+                
+                for (const line of lines) {
+                    const trimmedLine = line.trim();
+                    
+                    if (trimmedLine === 'BEGIN:VEVENT') {
+                        currentEvent = { userId: '', startTime: null, description: '' };
+                    } 
+                    else if (trimmedLine.startsWith('SUMMARY:') && currentEvent) {
+                        currentEvent.description = trimmedLine.substring(8);
+                    }
+                    else if (trimmedLine.startsWith('DTSTART:') && currentEvent) {
+                        const dateStr = trimmedLine.substring(8);
+                        try {
+                            // 处理常见的日期格式 yyyyMMddTHHmmssZ
+                            const year = parseInt(dateStr.substring(0, 4));
+                            const month = parseInt(dateStr.substring(4, 6)) - 1;
+                            const day = parseInt(dateStr.substring(6, 8));
+                            const hour = parseInt(dateStr.substring(9, 11));
+                            const minute = parseInt(dateStr.substring(11, 13));
+                            currentEvent.startTime = new Date(year, month, day, hour, minute);
+                        } catch (e) {
+                            console.error('日期解析错误', e);
+                        }
+                    }
+                    else if (trimmedLine.startsWith('DESCRIPTION:') && currentEvent) {
+                        const desc = trimmedLine.substring(12);
+                        if (desc.startsWith('UserID:')) {
+                            currentEvent.userId = desc.substring(7);
+                        }
+                    }
+                    else if (trimmedLine === 'END:VEVENT' && currentEvent) {
+                        if (currentEvent.startTime && currentEvent.userId) {
+                            events.push(currentEvent);
+                        }
+                        currentEvent = null;
+                    }
+                }
+                
+                return events;
+            }
+
+            // 检查事件
+            checkEvents(now) {
+                for (const event of this.events) {
+                    if (!event.notified) {
+                        const timeDiff = (event.startTime.getTime() - now.getTime()) / (1000 * 60);
+                        
+                        if (timeDiff > 0 && timeDiff <= 5) {
+                            this.notifyEvent(event);
+                            event.notified = true;
+                        }
+                    }
+                }
+            }
+
+            // 通知事件
+            notifyEvent(event) {
+                const timeString = event.startTime.toLocaleTimeString();
+                this.addNotification(format(
+                    translations[this.language]['event_notice'],
+                    event.userId,
+                    event.description,
+                    timeString
+                ));
+                
+                this.showBubble(event.userId, format(
+                    translations[this.language]['my_event'],
+                    event.description
+                ));
+                
+                // 浏览器通知
+                if (this.notificationsEnabled) {
+                    new Notification(`DuoLive - ${event.userId}`, {
+                        body: `${event.description} - ${timeString}`
+                    });
+                }
+            }
+
+            // 添加通知
+            addNotification(message, isError = false) {
+                const list = document.getElementById('notifications-list');
+                
+                const notification = document.createElement('div');
+                notification.className = `notification-item${isError ? ' error' : ''}`;
+                notification.textContent = message;
+                
+                list.insertBefore(notification, list.firstChild);
+                
+                // 最多保留10条
+                while (list.children.length > 10) {
+                    list.removeChild(list.lastChild);
+                }
+            }
+
+            // 请求通知权限
+            requestNotifications() {
+                this.notificationsEnabled = false;
+                
+                if ('Notification' in window) {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            this.notificationsEnabled = true;
+                            this.addNotification(translations[this.language]['notifications_on']);
+                        }
+                    });
+                }
+            }
+
+            // 加载示例事件
+            loadDemoEvents() {
+                const now = new Date();
+                
+                // 创建四个事件，分别在1-4分钟后
+                const demoEvents = [
+                    {
+                        userId: 'AB',
+                        description: this.language === 'zh-CN' ? '产品团队会议' : 'Product Team Meeting',
+                        startTime: new Date(now.getTime() + 1 * 60 * 1000),
+                        notified: false
+                    },
+                    {
+                        userId: 'RP',
+                        description: this.language === 'zh-CN' ? '提交项目报告' : 'Submit Project Report',
+                        startTime: new Date(now.getTime() + 2 * 60 * 1000),
+                        notified: false
+                    },
+                    {
+                        userId: 'IR',
+                        description: this.language === 'zh-CN' ? '午餐时间' : 'Lunch Break',
+                        startTime: new Date(now.getTime() + 3 * 60 * 1000),
+                        notified: false
+                    },
+                    {
+                        userId: 'GR',
+                        description: this.language === 'zh-CN' ? '客户回电' : 'Call Client',
+                        startTime: new Date(now.getTime() + 4 * 60 * 1000),
+                        notified: false
+                    }
+                ];
+                
+                this.events = this.events.concat(demoEvents);
+                
+                // 更新角色状态
+                this.characters['AB'].status = 'meeting';
+                this.characters['RP'].status = 'working';
+                
+                this.addNotification(translations[this.language]['demo_loaded']);
+            }
+        }
+
+        // 当文档加载完成时初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            window.app = new DuoLive();
+        });
+    </script>
+</body>
+</html>
