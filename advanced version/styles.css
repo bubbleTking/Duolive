@@ -1,0 +1,261 @@
+:root {
+    --floor-color: #f0e4d3;
+    --wall-color: #c8bead;
+    --accent-color: #7fb069;
+    --text-color: #4a4a4a;
+    --bedroom-color: #e8f4f8;
+    --bathroom-color: #d4e7f0;
+    --living-room-color: #f5e8c9;
+    --kitchen-color: #e8e8d0;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #e8f4e5;
+    color: var(--text-color);
+    padding: 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+h1 {
+    font-size: 24px;
+    color: #4a4a4a;
+}
+
+button {
+    background-color: var(--accent-color);
+    border: none;
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+button:hover {
+    background-color: #6a9e57;
+}
+
+/* 房子布局样式 */
+.house-container {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    background-color: #b8d8a7;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.house {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: #e0e0e0;
+}
+
+/* 房间样式 */
+.room {
+    position: absolute;
+    border: 2px solid var(--wall-color);
+    transition: all 0.2s;
+}
+
+.room-name {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    font-size: 10px;
+    color: #777;
+    pointer-events: none;
+}
+
+.bedroom {
+    background-color: var(--bedroom-color);
+}
+
+.bathroom {
+    background-color: var(--bathroom-color);
+}
+
+.living-room {
+    background-color: var(--living-room-color);
+}
+
+.kitchen {
+    background-color: var(--kitchen-color);
+}
+
+/* 家具样式 */
+.furniture {
+    position: absolute;
+    z-index: 2;
+}
+
+.bed {
+    width: 40px;
+    height: 60px;
+    background-color: #a5d8ff;
+    border-radius: 5px;
+}
+
+.desk {
+    width: 30px;
+    height: 20px;
+    background-color: #c0a080;
+    border-radius: 3px;
+}
+
+.sofa {
+    width: 80px;
+    height: 30px;
+    background-color: #d59a6f;
+    border-radius: 3px;
+}
+
+.table {
+    width: 50px;
+    height: 50px;
+    background-color: #9e7b55;
+    border-radius: 50%;
+}
+
+.sink {
+    width: 20px;
+    height: 30px;
+    background-color: #e0e0e0;
+    border-radius: 3px;
+}
+
+/* 角色样式 */
+.character {
+    width: 30px;
+    height: 30px;
+    position: absolute;
+    z-index: 10;
+    cursor: pointer;
+    transition: all 0.5s ease;
+}
+
+.character-inner {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    font-size: 12px;
+}
+
+/* 角色颜色 */
+.character[data-id="AB"] .character-inner { background-color: #FF6B6B; }
+.character[data-id="IR"] .character-inner { background-color: #4ECDC4; }
+.character[data-id="RP"] .character-inner { background-color: #FFD166; }
+.character[data-id="GR"] .character-inner { background-color: #70C1B3; }
+.character[data-id="CG"] .character-inner { background-color: #B8336A; }
+
+/* 对话气泡 */
+.speech-bubble {
+    position: absolute;
+    background: white;
+    border-radius: 10px;
+    padding: 8px;
+    width: 120px;
+    font-size: 12px;
+    bottom: 40px;
+    left: -45px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 100;
+}
+
+.speech-bubble:after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    margin-left: -8px;
+    border-width: 8px 8px 0;
+    border-style: solid;
+    border-color: white transparent;
+}
+
+.speech-bubble.active {
+    opacity: 1;
+}
+
+/* 活动状态指示器 */
+.status-indicator {
+    position: absolute;
+    top: -15px;
+    right: -5px;
+    font-size: 16px;
+}
+
+/* 通知面板 */
+.notification-panel {
+    background-color: white;
+    border-radius: 12px;
+    padding: 15px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+#notifications-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.notification-item {
+    padding: 10px;
+    background-color: #f8f8f8;
+    border-left: 4px solid var(--accent-color);
+    border-radius: 4px;
+}
+
+.context-menu {
+    display: none;
+    position: absolute;
+    background: white;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.context-menu ul {
+    list-style: none;
+}
+
+.context-menu li {
+    padding: 10px 15px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.context-menu li:hover {
+    background-color: #f0f0f0;
+}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuoLive - 室友生活模拟</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DuoLive - 室友生活模拟</h1>
+            <div class="controls">
+                <button id="language-btn">English</button>
+                <button id="import-btn">导入日程</button>
+                <button id="demo-btn">加载示例</button>
+                <span id="time-display"></span>
+            </div>
+        </header>
+        
+        <div class="house-container">
+            <div class="house" id="house">
+                <!-- 房间会由JavaScript生成 -->
+            </div>
+        </div>
+        
+        <div class="notification-panel">
+            <h3 id="notifications-title">通知</h3>
+            <div id="notifications-list"></div>
+        </div>
+        
+        <input type="file" id="file-upload" accept=".ics" style="display: none;">
+    </div>
+
+    <div id="character-menu" class="context-menu">
+        <ul>
+            <li data-action="status" id="menu-status">查看状态</li>
+            <li data-action="remind" id="menu-remind">发送提醒</li>
+            <li data-action="poke" id="menu-poke">戳一戳</li>
+            <li data-action="chat" id="menu-chat">聊天</li>
+        </ul>
+    </div>
+
+    <script src="scripts.js"></script>
+</body>
+</html>
