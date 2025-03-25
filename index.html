@@ -11,7 +11,9 @@
         <header>
             <h1>DuoLive</h1>
             <div class="controls">
-                <button id="import-calendar">导入日程</button>
+                <button id="language-toggle">English</button>
+                <button id="import-calendar" data-lang-key="import_calendar">导入日程</button>
+                <button id="load-demo" data-lang-key="load_demo">加载示例</button>
                 <span id="current-time"></span>
             </div>
         </header>
@@ -26,7 +28,7 @@
         </div>
         
         <div class="notification-panel">
-            <h3>通知</h3>
+            <h3 data-lang-key="notifications">通知</h3>
             <div id="notifications-list"></div>
         </div>
         
@@ -35,14 +37,15 @@
 
     <div id="character-menu" class="context-menu">
         <ul>
-            <li data-action="status">查看状态</li>
-            <li data-action="remind">发送提醒</li>
-            <li data-action="poke">戳一戳</li>
-            <li data-action="chat">聊天</li>
+            <li data-action="status" data-lang-key="check_status">查看状态</li>
+            <li data-action="remind" data-lang-key="send_reminder">发送提醒</li>
+            <li data-action="poke" data-lang-key="poke">戳一戳</li>
+            <li data-action="chat" data-lang-key="chat">聊天</li>
         </ul>
     </div>
 
     <script src="ics-parser.js"></script>
+    <script src="translations.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DuoLive</title>
+    <style>
+        /* 内联样式以确保CSS加载 */
+        :root {
+            --floor-color: #f0e4d3;
+            --wall-color: #c8bead;
+            --accent-color: #7fb069;
+            --text-color: #4a4a4a;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+            background-color: #e8f4e5;
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background-color: var(--accent-color);
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-right: 10px;
+        }
+
+        button:hover {
+            background-color: #6a9e57;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+        }
+
+        /* 等距视图样式 */
+        .game-container {
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+            background-color: #c4e3c2;
+            border-radius: 12px;
+        }
+
+        .isometric-world {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotateX(60deg) rotateZ(45deg);
+            transform-style: preserve-3d;
+        }
+
+        .house {
+            display: grid;
+            grid-template-columns: repeat(5, 100px);
+            grid-gap: 5px;
+        }
+
+        .room {
+            width: 100px;
+            height: 100px;
+            background-color: var(--floor-color);
+            border: 2px solid var(--wall-color);
+            position: relative;
+            border-radius: 5px;
+        }
+
+        /* 角色样式 */
+        .character {
+            width: 30px;
+            height: 30px;
+            position: absolute;
+            bottom: 10px;
+            left: 35px;
+            cursor: pointer;
+            transition: all 0.3s;
+            z-index: 10;
+        }
+
+        .character-inner {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            font-size: 12px;
+        }
+
+        /* 每个角色的颜色 */
+        .character[data-id="AB"] .character-inner { background-color: #FF6B6B; }
+        .character[data-id="IR"] .character-inner { background-color: #4ECDC4; }
+        .character[data-id="RP"] .character-inner { background-color: #FFD166; }
+        .character[data-id="GR"] .character-inner { background-color: #70C1B3; }
+        .character[data-id="CG"] .character-inner { background-color: #B8336A; }
+
+        /* 家具样式 */
+        .furniture {
+            position: absolute;
+            z-index: 5;
+        }
+
+        .bed {
+            width: 40px;
+            height: 25px;
+            background-color: #A5D8FF;
+            border-radius: 5px;
+            top: 15px;
+            left: 10px;
+        }
+
+        .desk {
+            width: 30px;
+            height: 20px;
+            background-color: #c0a080;
+            border-radius: 3px;
+            top: 50px;
+            right: 10px;
+        }
+
+        /* 对话气泡 */
+        .speech-bubble {
+            position: absolute;
+            background: white;
+            border-radius: 10px;
+            padding: 5px 8px;
+            font-size: 12px;
+            bottom: 35px;
+            left: -30px;
+            width: 90px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .speech-bubble.active {
+            opacity: 1;
+        }
+
+        .speech-bubble:after {
+            content: '';
+            position: absolute;
+            bottom: -7px;
+            left: 45px;
+            border-width: 8px 8px 0;
+            border-style: solid;
+            border-color: white transparent;
+        }
+
+        /* 睡眠状态 */
+        .sleeping .character-inner:after {
+            content: "💤";
+            position: absolute;
+            top: -15px;
+            right: -10px;
+            font-size: 15px;
+        }
+
+        /* 通知面板 */
+        .notification-panel {
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 12px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        #notifications-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .notification-item {
+            padding: 8px;
+            background-color: #f8f8f8;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        /* 上下文菜单 */
+        .context-menu {
+            display: none;
+            position: absolute;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        .context-menu ul {
+            list-style: none;
+        }
+
+        .context-menu li {
+            padding: 8px 15px;
+            cursor: pointer;
+        }
+
+        .context-menu li:hover {
+            background-color: #f0f0f0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>DuoLive</h1>
+            <div class="controls">
+                <button id="language-toggle">English</button>
+                <button id="import-calendar" data-lang-key="import_calendar">导入日程</button>
+                <button id="load-demo" data-lang-key="load_demo">加载示例</button>
+                <span id="current-time"></span>
+            </div>
+        </header>
+        
+        <div class="game-container">
+            <!-- 等距视图的游戏世界 -->
+            <div class="isometric-world">
+                <div class="house">
+                    <!-- 房间将通过 JavaScript 动态生成 -->
+                </div>
+            </div>
+        </div>
+        
+        <div class="notification-panel">
+            <h3 data-lang-key="notifications">通知</h3>
+            <div id="notifications-list"></div>
+        </div>
+        
+        <input type="file" id="ics-upload" accept=".ics" style="display: none;">
+    </div>
+
+    <div id="character-menu" class="context-menu">
+        <ul>
+            <li data-action="status" data-lang-key="check_status">查看状态</li>
+            <li data-action="remind" data-lang-key="send_reminder">发送提醒</li>
+            <li data-action="poke" data-lang-key="poke">戳一戳</li>
+            <li data-action="chat" data-lang-key="chat">聊天</li>
+        </ul>
+    </div>
+
+    <script>
+        // 语言翻译对象
+        const translations = {
+            'zh-CN': {
+                'import_calendar': '导入日程',
+                'load_demo': '加载示例',
+                'notifications': '通知',
+                'check_status': '查看状态',
+                'send_reminder': '发送提醒',
+                'poke': '戳一戳',
+                'chat': '聊天',
+                'success_import': '成功导入 {0} 个日程事件',
+                'import_failed': '导入日程失败，请检查文件格式',
+                'reminded_event': '你提醒了 {0} 关于他们的日程安排',
+                'dont_poke': '嘿! 别戳我!',
+                'my_status': '我现在的状态是: {0}',
+                'will_remember': '谢谢提醒，我会记得我的日程的!',
+                'upcoming_event': '{0} 的事件：{1}，即将在 {2} 开始',
+                'my_event': '我的事件 "{0}" 即将开始!',
+                'notifications_enabled': '通知权限已启用',
+                'demo_loaded': '示例日程已加载',
+                'idle': '空闲',
+                'sleeping': '睡觉',
+                'working': '工作',
+                'meeting': '开会'
+            },
+            'en-US': {
+                'import_calendar': 'Import Calendar',
+                'load_demo': 'Load Demo',
+                'notifications': 'Notifications',
+                'check_status': 'Check Status',
+                'send_reminder': 'Send Reminder',
+                'poke': 'Poke',
+                'chat': 'Chat',
+                'success_import': 'Successfully imported {0} events',
+                'import_failed': 'Failed to import calendar, please check file format',
+                'reminded_event': 'You reminded {0} about their schedule',
+                'dont_poke': "Hey! Don't poke me!",
+                'my_status': 'My current status is: {0}',
+                'will_remember': "Thanks for the reminder, I'll remember my schedule!",
+                'upcoming_event': "{0}'s event: {1}, starts at {2}",
+                'my_event': 'My event "{0}" is about to start!',
+                'notifications_enabled': 'Notification permissions enabled',
+                'demo_loaded': 'Demo schedule loaded',
+                'idle': 'idle',
+                'sleeping': 'sleeping',
+                'working': 'working',
+                'meeting': 'in a meeting'
+            }
+        };
+
+        // AI响应的翻译
+        const aiResponses = {
+            'zh-CN': [
+                "你好啊！有什么我能帮你的吗？",
+                "我现在有点忙，等一下再聊可以吗？",
+                "今天天气真好，不是吗？",
+                "我在思考人生的意义...",
+                "你知道我最喜欢的颜色是什么吗？是蓝色!"
+            ],
+            'en-US': [
+                "Hello there! How can I help you today?",
+                "I'm a bit busy right now, can we chat later?",
+                "Beautiful weather today, isn't it?",
+                "I'm contemplating the meaning of life...",
+                "Do you know what my favorite color is? It's blue!"
+            ]
+        };
+
+        // 格式化字符串的辅助函数
+        function formatString(str, ...args) {
+            return str.replace(/{(\d+)}/g, function(match, number) {
+                return typeof args[number] != 'undefined' ? args[number] : match;
+            });
+        }
+
+        // 简单的 ICS 文件解析器
+        class ICSParser {
+            static parse(icsData) {
+                const events = [];
+                const lines = icsData.split('\n');
+                let currentEvent = null;
+
+                for (let line of lines) {
+                    line = line.trim();
+
+                    if (line === 'BEGIN:VEVENT') {
+                        currentEvent = {
+                            userId: '',
+                            startTime: null,
+                            description: ''
+                        };
+                    } else if (line.startsWith('SUMMARY:') && currentEvent) {
+                        currentEvent.description = line.substring(8);
+                    } else if (line.startsWith('DTSTART:') && currentEvent) {
+                        // 解析时间格式：YYYYMMDDTHHMMSSZ
+                        const dateStr = line.substring(8);
+                        const year = dateStr.substring(0, 4);
+                        const month = dateStr.substring(4, 6) - 1; // 月份是 0-11
+                        const day = dateStr.substring(6, 8);
+                        const hour = dateStr.substring(9, 11);
+                        const minute = dateStr.substring(11, 13);
+                        currentEvent.startTime = new Date(year, month, day, hour, minute);
+                    } else if (line.startsWith('DESCRIPTION:UserID:') && currentEvent) {
+                        currentEvent.userId = line.substring(19);
+                    } else if (line === 'END:VEVENT' && currentEvent) {
+                        if (currentEvent.startTime && currentEvent.userId) {
+                            events.push(currentEvent);
+                        }
+                        currentEvent = null;
+                    }
+                }
+
+                return events;
+            }
+        }
+
+        // DuoLive 主应用
+        class DuoLive {
+            constructor() {
+                this.characters = {
+                    'AB': { status: 'idle', room: 0 },
+                    'RP': { status: 'idle', room: 1 },
+                    'IR': { status: 'idle', room: 2 },
+                    'GR': { status: 'idle', room: 3 },
+                    'CG': { status: 'idle', room: 4 }
+                };
+                
+                this.events = [];
+                this.notifications = [];
+                this.selectedCharacter = null;
+                this.currentLanguage = 'zh-CN';
+                
+                this.init();
+            }
+            
+            init() {
+                console.log("Initializing DuoLive...");
+                
+                // 创建房屋布局
+                this.createHouseLayout();
+                
+                // 添加角色
+                this.addCharacters();
+                
+                // 设置实时时钟
+                this.setupClock();
+                
+                // 设置事件监听器
+                this.setupEventListeners();
+                
+                // 请求通知权限
+                this.requestNotificationPermission();
+                
+                console.log("DuoLive initialized!");
+            }
+            
+            createHouseLayout() {
+                const house = document.querySelector('.house');
+                if (!house) {
+                    console.error("House element not found!");
+                    return;
+                }
+                
+                // 创建5个房间
+                for (let i = 0; i < 5; i++) {
+                    const room = document.createElement('div');
+                    room.className = 'room';
+                    room.dataset.roomId = i;
+                    
+                    // 添加家具
+                    const bed = document.createElement('div');
+                    bed.className = 'furniture bed';
+                    room.appendChild(bed);
+                    
+                    const desk = document.createElement('div');
+                    desk.className = 'furniture desk';
+                    room.appendChild(desk);
+                    
+                    house.appendChild(room);
+                }
+            }
+            
+            addCharacters() {
+                for (const [id, data] of Object.entries(this.characters)) {
+                    const room = document.querySelector(`.room[data-room-id="${data.room}"]`);
+                    if (!room) {
+                        console.error(`Room ${data.room} not found for character ${id}`);
+                        continue;
+                    }
+                    
+                    // 创建角色元素
+                    const character = document.createElement('div');
+                    character.className = 'character';
+                    character.dataset.id = id;
+                    
+                    const characterInner = document.createElement('div');
+                    characterInner.className = 'character-inner';
+                    characterInner.textContent = id;
+                    character.appendChild(characterInner);
+                    
+                    // 添加对话气泡
+                    const speechBubble = document.createElement('div');
+                    speechBubble.className = 'speech-bubble';
+                    character.appendChild(speechBubble);
+                    
+                    room.appendChild(character);
+                    
+                    // 添加点击事件
+                    character.addEventListener('click', (e) => this.handleCharacterClick(e, id));
+                }
+            }
+            
+            setupClock() {
+                const timeElement = document.getElementById('current-time');
+                if (!timeElement) {
+                    console.error("Time element not found!");
+                    return;
+                }
+                
+                // 更新时间和角色状态
+                const updateTime = () => {
+                    const now = new Date();
+                    const timeString = now.toLocaleTimeString();
+                    timeElement.textContent = timeString;
+                    
+                    // 更新角色状态基于时间
+                    this.updateCharacterStates(now);
+                    
+                    // 检查事件通知
+                    this.checkEventNotifications(now);
+                };
+                
+                // 立即更新一次
+                updateTime();
+                // 每秒更新一次
+                setInterval(updateTime, 1000);
+            }
+            
+            updateCharacterStates(now) {
+                const hour = now.getHours();
+                
+                // 晚上10点到早上6点角色睡觉
+                for (const [id, data] of Object.entries(this.characters)) {
+                    const character = document.querySelector(`.character[data-id="${id}"]`);
+                    if (!character) continue;
+                    
+                    if (hour >= 22 || hour < 6) {
+                        character.classList.add('sleeping');
+                        this.characters[id].status = 'sleeping';
+                    } else {
+                        character.classList.remove('sleeping');
+                        this.characters[id].status = 'idle';
+                    }
+                }
+            }
+            
+            setupEventListeners() {
+                // 导入日程按钮
+                const importBtn = document.getElementById('import-calendar');
+                if (importBtn) {
+                    importBtn.addEventListener('click', () => {
+                        console.log("Import calendar clicked");
+                        const uploadInput = document.getElementById('ics-upload');
+                        if (uploadInput) {
+                            uploadInput.click();
+                        } else {
+                            console.error("ICS upload input not found!");
+                        }
+                    });
+                } else {
+                    console.error("Import calendar button not found!");
+                }
+                
+                // 处理文件上传
+                const uploadInput = document.getElementById('ics-upload');
+                if (uploadInput) {
+                    uploadInput.addEventListener('change', (e) => {
+                        console.log("File selected");
+                        const file = e.target.files[0];
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                const icsData = e.target.result;
+                                this.importEvents(icsData);
+                            };
+                            reader.readAsText(file);
+                        }
+                    });
+                }
+                
+                // 语言切换按钮
+                const langToggle = document.getElementById('language-toggle');
+                if (langToggle) {
+                    langToggle.addEventListener('click', () => {
+                        console.log("Language toggle clicked");
+                        this.toggleLanguage();
+                    });
+                } else {
+                    console.error("Language toggle button not found!");
+                }
+                
+                // 加载示例按钮
+                const demoBtn = document.getElementById('load-demo');
+                if (demoBtn) {
+                    demoBtn.addEventListener('click', () => {
+                        console.log("Load demo clicked");
+                        this.loadDemoSchedule();
+                    });
+                } else {
+                    console.error("Load demo button not found!");
+                }
+                
+                // 处理角色菜单选项
+                const menuItems = document.querySelectorAll('#character-menu li');
+                menuItems.forEach(item => {
+                    item.addEventListener('click', () => {
+                        const action = item.dataset.action;
+                        console.log(`Menu action: ${action} for character: ${this.selectedCharacter}`);
+                        if (this.selectedCharacter) {
+                            this.handleCharacterAction(this.selectedCharacter, action);
+                        }
+                        this.hideContextMenu();
+                    });
+                });
+                
+                // 点击其他地方关闭菜单
+                document.addEventListener('click', (e) => {
+                    if (!e.target.closest('.character') && !e.target.closest('#character-menu')) {
+                        this.hideContextMenu();
+                    }
+                });
+            }
+            
+            toggleLanguage() {
+                // 切换语言
+                this.currentLanguage = this.currentLanguage === 'zh-CN' ? 'en-US' : 'zh-CN';
+                const toggleButton = document.getElementById('language-toggle');
+                if (toggleButton) {
+                    toggleButton.textContent = this.currentLanguage === 'zh-CN' ? 'English' : '中文';
+                }
+                
+                // 更新所有文本
+                this.updateAllTexts();
+            }
+            
+            updateAllTexts() {
+                // 更新所有带有 data-lang-key 属性的元素
+                document.querySelectorAll('[data-lang-key]').forEach(element => {
+                    const key = element.dataset.langKey;
+                    if (translations[this.currentLanguage][key]) {
+                        element.textContent = translations[this.currentLanguage][key];
+                    }
+                });
+            }
+            
+            handleCharacterClick(event, characterId) {
+                event.stopPropagation();
+                
+                // 保存当前选中的角色
+                this.selectedCharacter = characterId;
+                console.log(`Character clicked: ${characterId}`);
+                
+                // 显示上下文菜单
+                const menu = document.getElementById('character-menu');
+                if (menu) {
+                    menu.style.display = 'block';
+                    menu.style.left = `${event.pageX}px`;
+                    menu.style.top = `${event.pageY}px`;
+                } else {
+                    console.error("Character menu not found!");
+                }
+            }
+            
+            hideContextMenu() {
+                const menu = document.getElementById('character-menu');
+                if (menu) {
+                    menu.style.display = 'none';
+                }
+                this.selectedCharacter = null;
+            }
+            
+            handleCharacterAction(characterId, action) {
+                switch (action) {
+                    case 'status':
+                        this.showCharacterStatus(characterId);
+                        break;
+                    case 'remind':
+                        this.remindCharacter(characterId);
+                        break;
+                    case 'poke':
+                        this.pokeCharacter(characterId);
+                        break;
+                    case 'chat':
+                        this.chatWithAI(characterId);
+                        break;
+                }
+            }
+            
+            showCharacterStatus(characterId) {
+                const status = this.characters[characterId].status;
+                const statusText = translations[this.currentLanguage][status] || status;
+                const message = formatString(translations[this.currentLanguage]['my_status'], statusText);
+                this.showSpeechBubble(characterId, message);
+            }
+            
+            remindCharacter(characterId) {
+                this.showSpeechBubble(characterId, translations[this.currentLanguage]['will_remember']);
+                this.addNotification(formatString(translations[this.currentLanguage]['reminded_event'], characterId));
+            }
+            
+            pokeCharacter(characterId) {
+                const character = document.querySelector(`.character[data-id="${characterId}"]`);
+                if (!character) return;
+                
+                // 添加抖动动画
+                character.style.transform = 'translateX(5px)';
+                setTimeout(() => {
+                    character.style.transform = 'translateX(-5px)';
+                    setTimeout(() => {
+                        character.style.transform = 'translateX(0)';
+                    }, 100);
+                }, 100);
+                
+                this.showSpeechBubble(characterId, translations[this.currentLanguage]['dont_poke']);
+            }
+            
+            chatWithAI(characterId) {
+                // 获取当前语言的AI回应
+                const responses = aiResponses[this.currentLanguage];
+                const response = responses[Math.floor(Math.random() * responses.length)];
+                this.showSpeechBubble(characterId, response);
+            }
+            
+            showSpeechBubble(characterId, text) {
+                const character = document.querySelector(`.character[data-id="${characterId}"]`);
+                if (!character) return;
+                
+                const speechBubble = character.querySelector('.speech-bubble');
+                if (!speechBubble) return;
+                
+                speechBubble.textContent = text;
+                speechBubble.classList.add('active');
+                
+                // 5秒后隐藏
+                setTimeout(() => {
+                    speechBubble.classList.remove('active');
+                }, 5000);
+            }
+            
+            importEvents(icsData) {
+                try {
+                    const events = ICSParser.parse(icsData);
+                    this.events = this.events.concat(events);
+                    this.addNotification(formatString(translations[this.currentLanguage]['success_import'], events.length));
+                    
+                    // 检查是否有近期的事件
+                    const now = new Date();
+                    this.checkEventNotifications(now);
+                } catch (error) {
+                    console.error('导入日程时出错:', error);
+                    this.addNotification(translations[this.currentLanguage]['import_failed'], 'error');
+                }
+            }
+            
+            checkEventNotifications(now) {
+                for (const event of this.events) {
+                    // 如果事件在未来5分钟内，并且还没有提醒过
+                    const timeDiff = (event.startTime.getTime() - now.getTime()) / (1000 * 60);
+                    
+                    if (timeDiff > 0 && timeDiff <= 5 && !event.notified) {
+                        this.notifyEvent(event);
+                        event.notified = true;
+                    }
+                }
+            }
+            
+            notifyEvent(event) {
+                // 显示通知
+                const timeString = event.startTime.toLocaleTimeString();
+                this.addNotification(formatString(
+                    translations[this.currentLanguage]['upcoming_event'], 
+                    event.userId, 
+                    event.description, 
+                    timeString
+                ));
+                
+                // 让相应的角色说话
+                this.showSpeechBubble(event.userId, formatString(
+                    translations[this.currentLanguage]['my_event'], 
+                    event.description
+                ));
+                
+                // 如果浏览器通知已启用，也发送浏览器通知
+                if (this.notificationsEnabled) {
+                    new Notification(`DuoLive - ${event.userId}`, {
+                        body: `${event.description} - ${event.startTime.toLocaleTimeString()}`
+                    });
+                }
+            }
+            
+            addNotification(message, type = 'info') {
+                const notificationsList = document.getElementById('notifications-list');
+                if (!notificationsList) {
+                    console.error("Notifications list not found!");
+                    return;
+                }
+                
+                const notification = document.createElement('div');
+                notification.className = `notification-item ${type}`;
+                notification.textContent = message;
+                
+                notificationsList.prepend(notification);
+                
+                // 只保留最近的10条通知
+                this.notifications.push(message);
+                if (this.notifications.length > 10) {
+                    this.notifications.shift();
+                    if (notificationsList.children.length > 10) {
+                        notificationsList.removeChild(notificationsList.lastChild);
+                    }
+                }
+            }
+            
+            requestNotificationPermission() {
+                this.notificationsEnabled = false;
+                
+                if ('Notification' in window) {
+                    Notification.requestPermission().then(permission => {
+                        if (permission === 'granted') {
+                            this.notificationsEnabled = true;
+                            this.addNotification(translations[this.currentLanguage]['notifications_enabled']);
+                        }
+                    });
+                }
+            }
+            
+            // 加载示例日程
+            loadDemoSchedule() {
+                console.log("Loading demo schedule...");
+                // 创建一个示例日程，包含当前时间附近的事件
